@@ -64,16 +64,43 @@ export class Projection extends CypherASTNode {
         const hasAlias = Array.isArray(column);
         if (hasAlias) {
             const exprStr = column[0].getCypher(env);
+            const varName = exprStr.split(" ")[0];
+            const regexPattern = /(\.id|\.labels)/g;
+            const replacedString = exprStr.replace(regexPattern, (match, group1) => {
+                if (group1 === ".id") {
+                    return `id: id(${varName})`;
+                } else if (group1 === ".labels") {
+                    return `labels: labels(${varName})`;
+                }
+                return match;
+            });
             const alias = column[1];
-            let aliasStr: string;
+            let aliasStr;
             if (typeof alias === "string") {
                 aliasStr = alias;
             } else {
                 aliasStr = alias.getCypher(env);
             }
-
-            return `${exprStr} AS ${aliasStr}`;
+            return `${replacedString} AS ${aliasStr}`;
         }
-        return column.getCypher(env);
+        const cypher = column.getCypher(env) as string;
+        const variableMatch = cypher
+            ?.split("{")[0]
+            ?.split(" ")
+            ?.slice(-2)[0]
+            ?.replace(/[^a-zA-Z0-9]/g, "");
+        if (variableMatch) {
+            const regexPattern = /(\.id|\.labels)/g;
+            const replacedString = cypher.replace(regexPattern, (match, group1) => {
+                if (group1 === ".id") {
+                    return `id: id(${variableMatch})`;
+                } else if (group1 === ".labels") {
+                    return `labels: labels(${variableMatch})`;
+                }
+                return match;
+            });
+            return replacedString;
+        }
+        return cypher;
     }
 }

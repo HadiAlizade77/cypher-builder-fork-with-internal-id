@@ -64,16 +64,28 @@ export class Projection extends CypherASTNode {
         const hasAlias = Array.isArray(column);
         if (hasAlias) {
             const exprStr = column[0].getCypher(env);
-            const varName = exprStr.split(" ")[0];
-            const regexPattern = /(\.id|\.labels)/g;
-            const replacedString = exprStr.replace(regexPattern, (match, group1) => {
-                if (group1 === ".id") {
-                    return `id: id(${varName})`;
-                } else if (group1 === ".labels") {
-                    return `labels: labels(${varName})`;
+            // const varNameRegex = /this(?:\*?\d+)?/g;
+            // const varName = exprStr.match(varNameRegex)?.[0] ?? ''
+            const idRegexPattern = /(id:\s*this(\d+)\.id|\.id)/g;
+            const idReplacedString = exprStr.replace(idRegexPattern, (match, idMatch, idNumber) => {
+                if (idMatch) {
+                    // If the match is for an id pattern
+                    return `id: id(this${idNumber ?? ""})`;
                 }
+                // Return the original match if it doesn't match either pattern
                 return match;
             });
+
+            const labelRegexPattern = /(labels:\s*this(\d+)\.labels|\.labels)/g;
+            const replacedString = idReplacedString.replace(labelRegexPattern, (match, labelMatch, labelNumber) => {
+                if (labelMatch) {
+                    // If the match is for an id pattern
+                    return `labels: labels(this${labelNumber ?? ""})`;
+                }
+                // Return the original match if it doesn't match either pattern
+                return match;
+            });
+
             const alias = column[1];
             let aliasStr;
             if (typeof alias === "string") {
@@ -83,24 +95,27 @@ export class Projection extends CypherASTNode {
             }
             return `${replacedString} AS ${aliasStr}`;
         }
-        const cypher = column.getCypher(env) as string;
-        const variableMatch = cypher
-            ?.split("{")[0]
-            ?.split(" ")
-            ?.slice(-2)[0]
-            ?.replace(/[^a-zA-Z0-9]/g, "");
-        if (variableMatch) {
-            const regexPattern = /(\.id|\.labels)/g;
-            const replacedString = cypher.replace(regexPattern, (match, group1) => {
-                if (group1 === ".id") {
-                    return `id: id(${variableMatch})`;
-                } else if (group1 === ".labels") {
-                    return `labels: labels(${variableMatch})`;
-                }
-                return match;
-            });
-            return replacedString;
-        }
-        return cypher;
+        const cypher = column.getCypher(env);
+        const idRegexPattern = /(id:\s*this(\d+)\.id|\.id)/g;
+        const idReplacedString = cypher.replace(idRegexPattern, (match, idMatch, idNumber) => {
+            if (idMatch) {
+                // If the match is for an id pattern
+                return `id: id(this${idNumber ?? ""})`;
+            }
+            // Return the original match if it doesn't match either pattern
+            return match;
+        });
+
+        const labelRegexPattern = /(labels:\s*this(\d+)\.labels|\.labels)/g;
+        const replacedString = idReplacedString.replace(labelRegexPattern, (match, labelMatch, labelNumber) => {
+            if (labelMatch) {
+                // If the match is for an id pattern
+                return `labels: labels(this${labelNumber ?? ""})`;
+            }
+            // Return the original match if it doesn't match either pattern
+            return match;
+        });
+
+        return replacedString;
     }
 }
